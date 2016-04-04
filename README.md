@@ -1,7 +1,19 @@
-# go-tuf [![Build Status](https://travis-ci.org/flynn/go-tuf.svg?branch=master)](https://travis-ci.org/flynn/go-tuf)
+# go-tuf 
 
-This is a Go implementation of [The Update Framework (TUF)](http://theupdateframework.com/),
+
+This is a fork of the Go implementation of [The Update Framework (TUF)](http://theupdateframework.com/),
 a framework for securing software update systems.
+
+This versions implements a prototype of how would CoSi be used in the TUF
+context. Here, the timestamp.json file is signed as usual by the timestamp key,
+AND also by the CoSi system. The verification is done in the server side and the
+client side as before. This is a prototypish prototype, which calls the binary
+release 0.7 from https://github.com/dedis/cothority/releases.
+
+If relevant, more future work should be done especially to handle the CoSi
+signature as an normal additional signature which keys could be stored in the DB. Using the fork of the Notary project (https://github.com/endophage/gotuf) would provide the abstraction needed (key interface etc) to do that.
+
+The rest is the same.
 
 ## Directory layout
 
