@@ -151,7 +151,6 @@ func (c *Client) update(latestRoot bool) (data.Files, error) {
 			return nil, err
 		}
 	}
-
 	// Get timestamp.json, extract snapshot.json file meta and save the
 	// timestamp.json locally
 	timestampJSON, err := c.downloadMetaUnsafe("timestamp.json")
@@ -305,7 +304,7 @@ func (c *Client) getLocalMeta() error {
 
 	if timestampJSON, ok := meta["timestamp.json"]; ok {
 		timestamp := &data.Timestamp{}
-		if err := signed.UnmarshalTrusted(timestampJSON, timestamp, "timestamp", c.db); err != nil {
+		if err := signed.UnmarshalTrustedTimestamp(timestampJSON, timestamp, "timestamp", c.db); err != nil {
 			return err
 		}
 		c.timestampVer = timestamp.Version
@@ -498,7 +497,7 @@ func (c *Client) decodeTargets(b json.RawMessage) (data.Files, error) {
 // new snapshot file meta.
 func (c *Client) decodeTimestamp(b json.RawMessage) (data.FileMeta, error) {
 	timestamp := &data.Timestamp{}
-	if err := signed.Unmarshal(b, timestamp, "timestamp", c.timestampVer, c.db); err != nil {
+	if err := signed.UnmarshalTimestamp(b, timestamp, "timestamp", c.timestampVer, c.db); err != nil {
 		return data.FileMeta{}, ErrDecodeFailed{"timestamp.json", err}
 	}
 	c.timestampVer = timestamp.Version

@@ -276,6 +276,24 @@ func (r *Repo) RevokeKeyWithExpires(keyRole, id string, expires time.Time) error
 	return r.setMeta("root.json", root)
 }
 
+func (r *Repo) setMetaTimestamp(name string, meta interface{}) error {
+	keys, err := r.getKeys(strings.TrimSuffix(name, ".json"))
+	if err != nil {
+		return err
+	}
+	s, err := signed.MarshalTimestamp(meta, keys...)
+	if err != nil {
+		return err
+	}
+	b, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+	r.meta[name] = b
+	return r.local.SetMeta(name, b)
+
+}
+
 func (r *Repo) setMeta(name string, meta interface{}) error {
 	keys, err := r.getKeys(strings.TrimSuffix(name, ".json"))
 	if err != nil {
@@ -530,7 +548,7 @@ func (r *Repo) TimestampWithExpires(expires time.Time) error {
 	}
 	timestamp.Expires = expires.Round(time.Second)
 	timestamp.Version++
-	return r.setMeta("timestamp.json", timestamp)
+	return r.setMetaTimestamp("timestamp.json", timestamp)
 }
 
 func (r *Repo) fileHashes() (map[string]data.Hashes, error) {
@@ -640,8 +658,14 @@ func (r *Repo) verifySignature(name string, db *keys.DB) error {
 		return err
 	}
 	role := strings.TrimSuffix(name, ".json")
-	if err := signed.Verify(s, role, 0, db); err != nil {
-		return ErrInsufficientSignatures{name, err}
+	if role == "timestamp" {
+		if err := signed.VerifyTimestamp(s, role, 0, db); err != nil {
+			return ErrInsufficientSignatures{name, err}
+		}
+	} else {
+		if err := signed.Verify(s, role, 0, db); err != nil {
+			return ErrInsufficientSignatures{name, err}
+		}
 	}
 	return nil
 }

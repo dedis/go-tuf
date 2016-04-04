@@ -1,8 +1,12 @@
 package signed
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"io/ioutil"
+	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -124,4 +128,93 @@ func UnmarshalTrusted(b []byte, v interface{}, role string, db *keys.DB) error {
 		return err
 	}
 	return json.Unmarshal(s.Signed, v)
+}
+
+func UnmarshalTrustedTimestamp(b []byte, v interface{}, role string, db *keys.DB) error {
+	s := &data.Signed{}
+	if err := json.Unmarshal(b, s); err != nil {
+		return err
+	}
+	if err := VerifyTimestampCosi(s); err != nil {
+		return err
+	}
+	if err := VerifySignatures(s, role, db); err != nil {
+		return err
+	}
+	return json.Unmarshal(s.Signed, v)
+
+}
+func UnmarshalTimestamp(b []byte, v interface{}, role string, minVersion int, db *keys.DB) error {
+	s := &data.Signed{}
+	if err := json.Unmarshal(b, s); err != nil {
+		return err
+	}
+	if err := VerifyTimestamp(s, role, minVersion, db); err != nil {
+		return err
+	}
+	return json.Unmarshal(s.Signed, v)
+}
+
+func VerifyTimestamp(s *data.Signed, role string, minVersion int, db *keys.DB) error {
+	if err := VerifyTimestampCosi(s); err != nil {
+		return err
+	}
+	if err := Verify(s, role, minVersion, db); err != nil {
+		return err
+	}
+	return nil
+}
+
+func VerifyTimestampCosi(s *data.Signed) error {
+	var cosiSig *data.Signature
+	var cosiId int
+	for i, s := range s.Signatures {
+		if s.KeyID != "cosi" {
+			continue
+		}
+		cosiSig = &s
+		cosiId = i
+		break
+	}
+	if cosiSig == nil {
+		return errors.New("No CoSi signatures :(")
+	}
+	// write the sig to a file before
+	var cosiFile = "temp.cosi"
+	f, err := os.Create(cosiFile + ".sig")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	defer os.Remove(cosiFile + ".sig")
+	if _, err := f.Write([]byte(cosiSig.Signature)); err != nil {
+		return err
+	}
+
+	// write the content to a file
+	f, err = os.Create(cosiFile)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	defer os.Remove(cosiFile)
+	if _, err := f.Write([]byte(s.Signed)); err != nil {
+		return err
+	}
+
+	// verify
+	cmd := exec.Command("./cosi", "verify", "file", cosiFile)
+	var out = new(bytes.Buffer)
+	cmd.Stdout = out
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	b, _ := ioutil.ReadAll(out)
+	if !bytes.Contains(b, []byte("OK")) {
+		return errors.New("Signature invalid?:" + out.String())
+	}
+
+	// remove the CoSi signature
+	s.Signatures = append(s.Signatures[:cosiId], s.Signatures[cosiId+1:]...)
+	return nil
 }
