@@ -122,7 +122,6 @@ func (c *Client) Init(rootKeys []*data.Key, threshold int) error {
 //
 // It performs the update part of "The client application" workflow from
 // section 5.1 of the TUF spec:
-//
 // https://github.com/theupdateframework/tuf/blob/v0.9.9/docs/tuf-spec.txt#L714
 func (c *Client) Update() (data.Files, error) {
 	return c.update(false)
